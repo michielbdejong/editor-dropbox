@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />   
+    <title>remotestorage editor</title>
+    
+    <script src="codemirror-3.0/lib/codemirror.js"></script>
+    <link rel="stylesheet" href="codemirror-3.0/lib/codemirror.css" />
+    
+    <script src="codemirror-3.0/mode/xml/xml.js"></script>
+    <script src="codemirror-3.0/mode/javascript/javascript.js"></script>
+    <script src="codemirror-3.0/mode/css/css.js"></script>
+    <script src="codemirror-3.0/mode/htmlmixed/htmlmixed.js"></script>
+    <script src="codemirror-3.0/mode/markdown/markdown.js"></script>
+    <script src="codemirror-3.0/mode/clike/clike.js"></script>
+    <script src="codemirror-3.0/mode/php/php.js"></script>
+      
+    <script src="codemirror-3.0/lib/util/search.js"></script>
+    <script src="codemirror-3.0/lib/util/searchcursor.js"></script>
+    <script src="codemirror-3.0/lib/util/dialog.js"></script>
+
+    <script src="remoteStorage-dropbox.js"></script>
+    <script src="code.js"></script>
+    <style>
+      ul li { display: inline; margin: 3em }
+    </style>
+  </head>
+  <body>
+    <div id="remotestorage-connect"></div>
+    <h1>Editor</h1>
+    <div id="pleaseConnect">Please connect...</div>
+    <div id="main">
+      <ul id="cwd"></ul>
+      <ul id="items"></ul>
+      <div id="editor"></div>
+      <div>
+        <input value="js" onclick="myCodeMirror.setOption('mode', 'javascript');" type="submit" />
+        <input value="html" onclick="myCodeMirror.setOption('mode', 'htmlmixed');" type="submit" />
+        <input value="markdown" onclick="myCodeMirror.setOption('mode', 'markdown');" type="submit" />
+        <input value="php" onclick="myCodeMirror.setOption('mode', 'php');" type="submit" />
+        |
+        <input id="path" type="text" value="test.txt" />
+        <input value="up" id="up" type="submit" />
+        <input value="down" id="down" type="submit" />
+      </div>
+    </div>
+  </body>  
+  <script>
+    function $(id) { return document.getElementById(id); }
+    $('main').style.display='none';
+    var myCodeMirror = CodeMirror($('editor'), {
+      lineNumbers: true
+    });
+
+    remoteStorage.setDropboxKey('k2io5Ki2E0A=|GWbXK6tWqPdTdVyoJx19rI+gE2aZv2GNrtrRoyaNgQ==');
+    remoteStorage.claimAccess({
+      code: 'rw'
+    }).then(function () {
+      remoteStorage.displayWidget('remotestorage-connect');
+      remoteStorage.code.init();
+    });
+    
+    remoteStorage.onWidget('ready', function() {
+      $('pleaseConnect').style.display='none';
+      $('main').style.display='block';
+
+      remoteStorage.code.onDir(function(obj) {
+        var str = '';
+        for(var i=0; i<obj.items.length; i++) {
+          if(obj.items[i].substr(-1)=='/') {
+            str += '<li onclick="remoteStorage.code.goToDir(\''+obj.dir.join('')+obj.items[i]+'\');">'+obj.items[i]+'</li>';
+          } else {
+            str += '<li onclick="remoteStorage.code.goToFile(\''+obj.dir.join('')+obj.items[i]+'\');">'+obj.items[i]+'</li>';
+          }
+        }
+        $('items').innerHTML = str;
+        str = '<li onclick="remoteStorage.code.goToDir(\'\');">(root)</li>';
+        var dirSoFar='';
+        for(var i=0; i<obj.dir.length; i++) {
+          dirSoFar += obj.dir[i];
+          str += '<li onclick="remoteStorage.code.goToDir(\''+dirSoFar+'\');">'+obj.dir[i]+'</li>';
+        }
+        $('cwd').innerHTML = str;
+      });
+
+      $('up').onclick = function() {
+        var mode = myCodeMirror.getOption('mode'), type;
+        if(mode=='javascript') {
+          type = 'application/javascript';
+        } else if(mode == 'htmlmixed') {
+          type = 'text/html';
+        } else if(mode == 'php') {
+          type = 'application/php';
+        } else {
+          type = 'text/markdown';
+        }
+        remoteStorage.code.up($('path').value, type, myCodeMirror.getValue());
+      }
+      $('down').onclick = function() {
+        remoteStorage.code.down($('path').value);
+      };
+      remoteStorage.code.onCurr(function(obj) {
+        console.log('onCurr', obj);
+        if(obj.mimeType=='application/javascript') {
+          myCodeMirror.setOption('mode', 'javascript');
+        } else if(obj.mimeType=='text/html') {
+          myCodeMirror.setOption('mode', 'htmlmixed');
+        } else if(obj.mimeType=='application/php') {
+          myCodeMirror.setOption('mode', 'php');
+        } else {
+          myCodeMirror.setOption('mode', 'markdown');
+        }
+        if(typeof(obj.data) != 'string') {
+          obj.data = '';
+        }
+        myCodeMirror.setValue(obj.data);
+        $('path').value = obj.path;
+      });
+      remoteStorage.code.goToDir(''); 
+    });
+
+    remoteStorage.onWidget('disconnect', function() {
+      $('main').style.display='none';
+      $('pleaseConnect').style.display='block';
+      $('cwd').innerHTML='';
+      $('items').innerHTML='';
+      myCodeMirror.setValue('');
+    });
+  </script>
+</html>
