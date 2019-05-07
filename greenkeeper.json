@@ -1,0 +1,9 @@
+{
+  "groups": {
+    "default": {
+      "packages": [
+        "codemirror-3.0/package.json"
+      ]
+    }
+  }
+}
